@@ -172,54 +172,16 @@ function getRandomSize(): number {
     return Math.floor(Math.random() * (randomRange)) + mininumSize;
 }
 
-export default function GameController(): React.ReactElement {
 
-    const boardSize = getRandomSize();
-    const [boardGrid, setBoardGrid] = useState<(BoardGrid)>({
-        rows: boardSize,
-        columns: boardSize
-    })
-    const [history, setHistory] = useState<(string | null)[][]>([Array(boardGrid.rows * boardGrid.columns).fill(null)]);
-    const [currentMove, setCurrentMove] = useState(0);
-
-
-    function handlePlay(nextSquares: (string|null)[]): void {
-        const nextHistory = [...history.slice(0, currentMove + 1), nextSquares];
-        setHistory(nextHistory);
-        setCurrentMove(nextHistory.length - 1);
-    }
-
-    function jumpTo(nextMove: number): void {
-        setCurrentMove(nextMove);
-    }
-
-    let game = Game(boardGrid, history, currentMove, handlePlay, jumpTo);
-
-    function startNewGame() {
-        const newBoardSize = getRandomSize();
-
-        setBoardGrid({
-            rows: newBoardSize,
-            columns: newBoardSize
-        });
-        setHistory([Array(boardGrid.rows * boardGrid.columns).fill(null)]);
-        setCurrentMove(0);
-        game = Game(boardGrid, history, currentMove, handlePlay, jumpTo);
-    }
-
-    return (
-        <>
-            <div className="relative flex justify-center items-center h-screen">
-                <div className="absolute bottom-24 right-24">
-                    <button className="border-1 border-gray-600 px-2 m-1 w-40 text-left bg-gray-900 text-gray-500 hover:bg-gray-900 hover:border-gray-200 font-mono" onClick={() => startNewGame()}>Start new game</button>
-                </div>
-                {game}
-            </div>
-        </>
-    )
+type GameProps = {
+    boardGrid: BoardGrid;
+    history: (string | null)[][];
+    currentMove: number;
+    handlePlay: (nextSquares: (string | null)[]) => void;
+    jumpTo: Function;
 }
 
-function Game(boardGrid: BoardGrid, history:(string | null)[][], currentMove: number, handlePlay: (nextSquares: (string | null)[]) => void, jumpTo: Function): React.ReactElement {
+function Game({boardGrid, history, currentMove, handlePlay, jumpTo}: GameProps): React.ReactElement {
 
     const xIsNext = currentMove % 2 === 0;
     const currentSquares = history[currentMove];
@@ -248,6 +210,57 @@ function Game(boardGrid: BoardGrid, history:(string | null)[][], currentMove: nu
             </div>
             <div className="absolute top-24 left-24">
                 <ol>{moves}</ol>
+            </div>
+        </>
+    )
+}
+
+export default function GameController(): React.ReactElement {
+
+    const boardSize = getRandomSize();
+    const [boardGrid, setBoardGrid] = useState<(BoardGrid)>({
+        rows: boardSize,
+        columns: boardSize
+    })
+    const [history, setHistory] = useState<(string | null)[][]>([Array(boardGrid.rows * boardGrid.columns).fill(null)]);
+    const [currentMove, setCurrentMove] = useState(0);
+
+
+    function handlePlay(nextSquares: (string|null)[]): void {
+        const nextHistory = [...history.slice(0, currentMove + 1), nextSquares];
+        setHistory(nextHistory);
+        setCurrentMove(nextHistory.length - 1);
+    }
+
+    function jumpTo(nextMove: number): void {
+        setCurrentMove(nextMove);
+    }
+
+    function startNewGame() {
+        const newBoardSize = getRandomSize();
+
+        setBoardGrid({
+            rows: newBoardSize,
+            columns: newBoardSize
+        });
+
+        setHistory([Array(newBoardSize * newBoardSize).fill(null)]);
+        setCurrentMove(0);
+    }
+
+    return (
+        <>
+            <div className="relative flex justify-center items-center h-screen">
+                <div className="absolute bottom-24 right-24">
+                    <button className="border-1 border-gray-600 px-2 m-1 w-40 text-left bg-gray-900 text-gray-500 hover:bg-gray-900 hover:border-gray-200 font-mono" onClick={() => startNewGame()}>Start new game</button>
+                </div>
+                <Game 
+                    boardGrid={boardGrid}
+                    history={history}
+                    currentMove={currentMove}
+                    handlePlay={handlePlay}
+                    jumpTo={jumpTo}
+                 />
             </div>
         </>
     )
