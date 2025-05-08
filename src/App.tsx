@@ -1,21 +1,24 @@
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 
 type SquareProps = {
     elementNumber: number;
     value: string | null;
     onSquareClick: () => void;
+    showSquareNumbers: boolean;
 }
 
-function Square({elementNumber, value, onSquareClick}: SquareProps): React.ReactElement {
+function Square({elementNumber, value, onSquareClick, showSquareNumbers}: SquareProps): React.ReactElement {
+
+    const uncheckedSquareDisplay = showSquareNumbers ? elementNumber : ' ';
 
     return (
         <button className=
             {
                 value ? "square rounded-xl  m-2 font-bold text-gray-200/80 border-2 border-emerald-700/80 text-5xl size-20 transition ease-in-out":
-                "square-number rounded-xl  bg-indigo-900/10 m-2 text-gray-800 border-2 border-violet-600/80 text-5xl size-20 transition duration-100 ease-in-out hover:scale-110 hover:bg-gray-900/20 hover:border-violet-300"
+                "whitespace-pre-wrap rounded-xl  bg-indigo-900/10 m-2 text-gray-800 border-2 border-violet-600/80 text-5xl size-20 transition duration-100 ease-in-out hover:scale-110 hover:bg-gray-900/20 hover:border-violet-300"
             }
             onClick={onSquareClick}>
-            { value ? value : elementNumber }
+            { value ? value : uncheckedSquareDisplay }
         </button>
     )
 }
@@ -30,9 +33,10 @@ type BoardProps = {
     squares: (string | null)[];
     boardGrid: BoardGrid;
     onPlay: (nextSquares: (string | null)[]) => void;
+    showSquareNumbers: boolean;
 }
 
-function Board({xIsNext, squares, boardGrid, onPlay}: BoardProps): React.ReactElement {
+function Board({xIsNext, squares, boardGrid, onPlay, showSquareNumbers}: BoardProps): React.ReactElement {
 
     const boardRows = [...Array(boardGrid.rows).keys()];
     const boardColumns = [...Array(boardGrid.columns).keys()];
@@ -67,7 +71,7 @@ function Board({xIsNext, squares, boardGrid, onPlay}: BoardProps): React.ReactEl
                         { boardColumns.map(col => 
                             {
                                 const squareNumber = row * boardGrid.columns + col
-                                return <Square key={col} elementNumber={squareNumber} value={squares[squareNumber]} onSquareClick={() => handleClick(squareNumber)}/>
+                                return <Square key={col} elementNumber={squareNumber} value={squares[squareNumber]} onSquareClick={() => handleClick(squareNumber)} showSquareNumbers={showSquareNumbers}/>
                             }
                         )}
                     </div>
@@ -144,14 +148,18 @@ function calculateWinningDiagonals(boardGrid: BoardGrid, slope: number = 1, mini
     return winningDiagonals;
 }
 
-function calculateWinner(squares: (string|null)[], boardGrid: BoardGrid): string | null {
-
+function calculateWinningLines(boardGrid: BoardGrid): number[][] {
     let winningRows = calculateWinningRows(boardGrid);
     let winningColumns = calculateWinningColumns(boardGrid);
     let winningDiagonals = calculateWinningDiagonals(boardGrid, 1, 3);
     
-    const winningLines: number[][] = [...winningRows, ...winningColumns, ...winningDiagonals];
-    
+    return [...winningRows, ...winningColumns, ...winningDiagonals];
+}
+
+function calculateWinner(squares: (string|null)[], boardGrid: BoardGrid): string | null {
+
+    const winningLines = calculateWinningLines(boardGrid); // make not repeat unnecessarily
+
     for (let i: number = 0; i < winningLines.length; i++) {
         let checkSquares = winningLines[i].map(l => squares[l])
         const lined = checkSquares.every((sq, _i, squares) => sq === squares[0]);
@@ -170,29 +178,22 @@ function getRandomSize(): number {
     const mininumSize: number = 3;
     const randomRange = 4;
     return Math.floor(Math.random() * (randomRange)) + mininumSize;
-  }
+}
 
-export default function Game(): React.ReactElement {
-    const boardSize = getRandomSize();
-    const [boardGrid, _setBoardGrid] = useState<(BoardGrid)>({
-        rows: boardSize,
-        columns: boardSize
-    })
- 
-    const [history, setHistory] = useState<(string | null)[][]>([Array(boardGrid.rows * boardGrid.columns).fill(null)]);
-    const [currentMove, setCurrentMove] = useState(0);
+
+type GameProps = {
+    boardGrid: BoardGrid;
+    history: (string | null)[][];
+    currentMove: number;
+    handlePlay: (nextSquares: (string | null)[]) => void;
+    jumpTo: Function;
+    showSquareNumbers: boolean
+}
+
+function Game({boardGrid, history, currentMove, handlePlay, jumpTo, showSquareNumbers}: GameProps): React.ReactElement {
+
     const xIsNext = currentMove % 2 === 0;
     const currentSquares = history[currentMove];
-
-    function handlePlay(nextSquares: (string|null)[]): void {
-        const nextHistory = [...history.slice(0, currentMove + 1), nextSquares];
-        setHistory(nextHistory);
-        setCurrentMove(nextHistory.length - 1);
-    }
-
-    function jumpTo(nextMove: number): void {
-        setCurrentMove(nextMove);
-    }
 
     const moves = history.map((_squares, move) => {
         let description;
@@ -212,13 +213,76 @@ export default function Game(): React.ReactElement {
     })
 
     return (
-        <div className="relative flex justify-center items-center h-screen">
+        <>
             <div className="game-board rounded-md font-mono">
-                <Board xIsNext={xIsNext} squares={currentSquares} boardGrid={boardGrid} onPlay={handlePlay}/>
+                <Board xIsNext={xIsNext} squares={currentSquares} boardGrid={boardGrid} onPlay={handlePlay} showSquareNumbers={showSquareNumbers}/>
             </div>
             <div className="absolute top-24 left-24">
                 <ol>{moves}</ol>
             </div>
-        </div>
+        </>
+    )
+}
+
+export default function GameController(): React.ReactElement {
+
+    const boardSize = getRandomSize();
+    const [boardGrid, setBoardGrid] = useState<(BoardGrid)>({
+        rows: boardSize,
+        columns: boardSize
+    })
+    const [history, setHistory] = useState<(string | null)[][]>([Array(boardGrid.rows * boardGrid.columns).fill(null)]);
+    const [currentMove, setCurrentMove] = useState(0);
+    const [showSquareNumbers, setShowSquareNumbers] = useState(false);
+
+    useEffect(() => {
+        document.addEventListener("keydown", handleKeyDown);
+        return () => document.removeEventListener("keydown", handleKeyDown);
+    });
+
+    let handleKeyDown = (e: { key: string; }) => {
+        if (e.key === 'n') {
+            setShowSquareNumbers(!showSquareNumbers)
+        }
+    }
+
+    function handlePlay(nextSquares: (string|null)[]): void {
+        const nextHistory = [...history.slice(0, currentMove + 1), nextSquares];
+        setHistory(nextHistory);
+        setCurrentMove(nextHistory.length - 1);
+    }
+
+    function jumpTo(nextMove: number): void {
+        setCurrentMove(nextMove);
+    }
+
+    function startNewGame() {
+        const newBoardSize = getRandomSize();
+
+        setBoardGrid({
+            rows: newBoardSize,
+            columns: newBoardSize
+        });
+
+        setHistory([Array(newBoardSize * newBoardSize).fill(null)]);
+        setCurrentMove(0);
+    }
+
+    return (
+        <>
+            <div className="relative flex justify-center items-center h-screen">
+                <div className="absolute bottom-24 right-24">
+                    <button className="border-1 border-gray-600 px-2 m-1 w-40 text-left bg-gray-900 text-gray-500 hover:bg-gray-900 hover:border-gray-200 font-mono" onClick={() => startNewGame()}>Start new game</button>
+                </div>
+                <Game 
+                    boardGrid={boardGrid}
+                    history={history}
+                    currentMove={currentMove}
+                    handlePlay={handlePlay}
+                    jumpTo={jumpTo}
+                    showSquareNumbers={showSquareNumbers}
+                 />
+            </div>
+        </>
     )
 }
